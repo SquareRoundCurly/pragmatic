@@ -1,3 +1,5 @@
+.env
+
 .claude/settings.local.json
 .claude/claude_home/
 
