@@ -1,0 +1,1 @@
+- [Always --break-system-packages](feedback_break_system_packages.md) — devcontainer: pip install should always use --break-system-packages

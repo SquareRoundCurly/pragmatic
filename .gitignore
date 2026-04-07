@@ -1,0 +1,6 @@
+.claude/settings.local.json
+.claude/claude_home/
+
+**/*.pyc
+**/__pycache__
+pragmatic.egg-info

@@ -1,0 +1,13 @@
+{
+  "name": "pragmatic",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "devcontainer",
+  "remoteEnv": {
+    "PATH": "/home/devcontainer/.local/bin:${containerEnv:PATH}"
+  },
+  "mounts": [
+    "source=${localWorkspaceFolder}/.claude/claude_home,target=/home/devcontainer/.claude,type=bind"
+  ]
+}
