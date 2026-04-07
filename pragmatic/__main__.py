@@ -4,8 +4,9 @@ import argparse
 import os
 import sys
 
-import requests
 from dotenv import load_dotenv
+from openrouter import OpenRouter
+from openrouter.components import ChatUserMessage
 
 
 def main():
@@ -36,17 +37,13 @@ def main():
         print("Error: OPENROUTER_API_KEY environment variable not set", file=sys.stderr)
         sys.exit(1)
 
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={"Authorization": f"Bearer {api_key}"},
-        json={
-            "model": args.model,
-            "messages": [{"role": "user", "content": prompt}],
-        },
+    client = OpenRouter(api_key=api_key)
+    response = client.chat.send(
+        model=args.model,
+        messages=[ChatUserMessage(role="user", content=prompt)],
     )
-    response.raise_for_status()
 
-    content = response.json()["choices"][0]["message"]["content"]
+    content = response.choices[0].message.content
 
     if args.output:
         with open(args.output, "w") as f:

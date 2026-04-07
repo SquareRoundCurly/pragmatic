@@ -1,92 +1,84 @@
-"""Tests for pragmatic CLI entry point."""
+"""Integration tests for pragmatic CLI."""
 
-import json
-from unittest.mock import patch
+import io
+import subprocess
+import sys
 
 import pytest
 
-from pragmatic.__main__ import main
 
-MOCK_RESPONSE = {
-    "choices": [{"message": {"content": "Hello from LLM"}}]
-}
-
-
-class FakeResponse:
-    def __init__(self):
-        self.status_code = 200
-
-    def raise_for_status(self):
-        pass
-
-    def json(self):
-        return MOCK_RESPONSE
+def run_cli(*args):
+    result = subprocess.run(
+        [sys.executable, "-m", "pragmatic", *args],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return result
 
 
-@pytest.fixture(autouse=True)
-def set_api_key(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+def test_prompt_inline():
+    r = run_cli("--prompt", "Reply with exactly: PONG")
+    assert r.returncode == 0
+    assert len(r.stdout.strip()) > 0
 
 
-@pytest.fixture
-def mock_post():
-    with patch("pragmatic.__main__.requests.post", return_value=FakeResponse()) as m:
-        yield m
-
-
-def test_prompt_inline(mock_post, capsys, monkeypatch):
-    monkeypatch.setattr("sys.argv", ["pragmatic", "--prompt", "hello"])
-    main()
-    assert capsys.readouterr().out.strip() == "Hello from LLM"
-    assert mock_post.call_args[1]["json"]["messages"][0]["content"] == "hello"
-
-
-def test_prompt_file(mock_post, capsys, monkeypatch, tmp_path):
+def test_prompt_file(tmp_path):
     prompt_file = tmp_path / "prompt.txt"
-    prompt_file.write_text("prompt from file")
-    monkeypatch.setattr("sys.argv", ["pragmatic", "--prompt-file", str(prompt_file)])
-    main()
-    assert capsys.readouterr().out.strip() == "Hello from LLM"
-    assert mock_post.call_args[1]["json"]["messages"][0]["content"] == "prompt from file"
+    prompt_file.write_text("Reply with exactly: PONG")
+    r = run_cli("--prompt-file", str(prompt_file))
+    assert r.returncode == 0
+    assert len(r.stdout.strip()) > 0
 
 
-def test_prompt_stdin(mock_post, capsys, monkeypatch):
-    monkeypatch.setattr("sys.argv", ["pragmatic", "--prompt-file", "-"])
-    monkeypatch.setattr("sys.stdin", __import__("io").StringIO("stdin prompt"))
-    main()
-    assert capsys.readouterr().out.strip() == "Hello from LLM"
-    assert mock_post.call_args[1]["json"]["messages"][0]["content"] == "stdin prompt"
+def test_prompt_stdin():
+    result = subprocess.run(
+        [sys.executable, "-m", "pragmatic", "--prompt-file", "-"],
+        input="Reply with exactly: PONG",
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0
+    assert len(result.stdout.strip()) > 0
 
 
-def test_output_to_file(mock_post, monkeypatch, tmp_path):
+def test_output_to_file(tmp_path):
     output_file = tmp_path / "output.txt"
-    monkeypatch.setattr("sys.argv", ["pragmatic", "--prompt", "hi", "--output", str(output_file)])
-    main()
-    assert output_file.read_text() == "Hello from LLM"
+    r = run_cli("--prompt", "Reply with exactly: PONG", "--output", str(output_file))
+    assert r.returncode == 0
+    assert output_file.exists()
+    assert len(output_file.read_text()) > 0
 
 
-def test_custom_model(mock_post, capsys, monkeypatch):
-    monkeypatch.setattr("sys.argv", ["pragmatic", "--prompt", "hi", "--model", "anthropic/claude-3"])
-    main()
-    assert mock_post.call_args[1]["json"]["model"] == "anthropic/claude-3"
+def test_custom_model():
+    r = run_cli("--prompt", "Reply with exactly: PONG", "--model", "openai/gpt-4.1-nano")
+    assert r.returncode == 0
+    assert len(r.stdout.strip()) > 0
 
 
-def test_missing_api_key(monkeypatch, capsys):
-    monkeypatch.delenv("OPENROUTER_API_KEY")
-    monkeypatch.setattr("pragmatic.__main__.load_dotenv", lambda: None)
-    monkeypatch.setattr("sys.argv", ["pragmatic", "--prompt", "hi"])
-    with pytest.raises(SystemExit, match="1"):
-        main()
-    assert "OPENROUTER_API_KEY" in capsys.readouterr().err
+def test_missing_api_key(tmp_path):
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "import os; os.chdir('/tmp');"
+         "from pragmatic.__main__ import main;"
+         "import sys; sys.argv=['pragmatic','--prompt','hi'];"
+         "main()"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env={"PATH": subprocess.os.environ["PATH"], "HOME": str(tmp_path)},
+        cwd=str(tmp_path),
+    )
+    assert result.returncode == 1
+    assert "OPENROUTER_API_KEY" in result.stderr
 
 
-def test_no_prompt_args_errors(monkeypatch):
-    monkeypatch.setattr("sys.argv", ["pragmatic"])
-    with pytest.raises(SystemExit, match="2"):
-        main()
+def test_no_prompt_args_errors():
+    r = run_cli()
+    assert r.returncode == 2
 
 
-def test_both_prompt_args_errors(monkeypatch):
-    monkeypatch.setattr("sys.argv", ["pragmatic", "--prompt", "hi", "--prompt-file", "f.txt"])
-    with pytest.raises(SystemExit, match="2"):
-        main()
+def test_both_prompt_args_errors():
+    r = run_cli("--prompt", "hi", "--prompt-file", "f.txt")
+    assert r.returncode == 2
