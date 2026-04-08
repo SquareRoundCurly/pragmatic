@@ -7,7 +7,16 @@
   "remoteEnv": {
     "PATH": "/home/devcontainer/.local/bin:${containerEnv:PATH}"
   },
+  "postCreateCommand": "sudo chown -R devcontainer:devcontainer /workspaces",
   "mounts": [
     "source=${localWorkspaceFolder}/.claude/claude_home,target=/home/devcontainer/.claude,type=bind"
-  ]
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.debugpy",
+        "anthropic.claude-code"
+      ]
+    }
+  }
 }

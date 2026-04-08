@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Agent Mode",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pragmatic",
+            "args": [
+                "--prompt", "Say hello and finish."
+            ],
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Agent Mode (Prompt)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pragmatic",
+            "args": [
+                "--prompt", "${input:agentPrompt}"
+            ],
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "agentPrompt",
+            "type": "promptString",
+            "description": "Enter your agent prompt"
+        }
+    ]
+}
