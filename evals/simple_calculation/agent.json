@@ -1,0 +1,9 @@
+{
+    "model": "openai/gpt-4.1-nano",
+    "max_iterations": 10,
+    "tools": ["bash"],
+    "permissions": [
+        {"read": "workspace"},
+        {"write": "workspace"}
+    ]
+}

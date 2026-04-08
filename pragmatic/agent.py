@@ -11,26 +11,71 @@ from openrouter.components import (
     ChatUserMessage,
 )
 
-from pragmatic.tools import Tool
+from pragmatic.sandbox.spec import SandboxSpec
+from pragmatic.tools import Tool, resolve_tools
+from pragmatic.tools.bash import sandboxed_bash_tool
 from pragmatic.tools.finish import FINISH_TOOL
+
+DEFAULT_MODEL = "openai/gpt-4.1-nano"
+DEFAULT_MAX_ITERATIONS = 10
+DEFAULT_TOOLS = ["bash"]
+
+
+def _permissions_to_sandbox(permissions: list[dict[str, str]]) -> SandboxSpec:
+    """Convert a permissions list to a SandboxSpec."""
+    ro_binds = []
+    rw_binds = []
+    workdir = None
+    for entry in permissions:
+        path = os.path.abspath(entry.get("read") or entry.get("write", ""))
+        if "read" in entry:
+            ro_binds.append((path, path))
+        elif "write" in entry:
+            rw_binds.append((path, path))
+        if workdir is None:
+            workdir = path
+    return SandboxSpec(
+        command=[],  # filled per invocation
+        workdir=workdir,
+        ro_binds=ro_binds,
+        rw_binds=rw_binds,
+    )
 
 
 class Agent:
     """A simple agentic loop that sends a prompt to an LLM and processes tool calls."""
 
-    def __init__(self, model: str = "openai/gpt-4.1-nano", tools: list[Tool] | None = None, max_iterations: int = 10):
+    def __init__(self, model: str = DEFAULT_MODEL, max_iterations: int = DEFAULT_MAX_ITERATIONS,
+                 tools: list[str] | None = None, permissions: list[dict[str, str]] | None = None):
         load_dotenv()
         api_key = os.environ.get("OPENROUTER_API_KEY")
         if not api_key:
             raise RuntimeError("OPENROUTER_API_KEY environment variable not set")
 
-        self.client = OpenRouter(api_key=api_key)
         self.model = model
         self.max_iterations = max_iterations
+        self.permissions = permissions
+        self.client = OpenRouter(api_key=api_key)
 
         self.tools: dict[str, Tool] = {FINISH_TOOL.name: FINISH_TOOL}
-        for tool in tools or []:
+        for tool in resolve_tools(tools if tools is not None else list(DEFAULT_TOOLS)):
             self.tools[tool.name] = tool
+
+        # When permissions are set, replace bash with a sandboxed version
+        if permissions and "bash" in self.tools:
+            spec = _permissions_to_sandbox(permissions)
+            self.tools["bash"] = sandboxed_bash_tool(spec)
+
+    @classmethod
+    def from_file(cls, path: str) -> "Agent":
+        with open(path) as f:
+            data = json.load(f)
+        return cls(
+            model=data.get("model", DEFAULT_MODEL),
+            max_iterations=data.get("max_iterations", DEFAULT_MAX_ITERATIONS),
+            tools=data.get("tools", list(DEFAULT_TOOLS)),
+            permissions=data.get("permissions"),
+        )
 
     def _log(self, role: str, content: str) -> None:
         print(f"[{role}] {content}", file=sys.stderr)

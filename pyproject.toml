@@ -16,5 +16,8 @@ pragmatic = "pragmatic.__main__:main"
 [project.optional-dependencies]
 test = ["tox>=4.0", "pytest>=7.0"]
 
+[tool.setuptools.packages.find]
+include = ["pragmatic*"]
+
 [project.urls]
 Repository = "https://github.com/SquareRoundCurly/pragmatic"

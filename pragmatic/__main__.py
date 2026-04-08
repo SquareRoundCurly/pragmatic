@@ -5,7 +5,6 @@ import json
 import sys
 
 from pragmatic.agent import Agent
-from pragmatic.tools.bash import BASH_TOOL
 
 
 def _read_prompt(args):
@@ -22,8 +21,9 @@ def main():
     parser.add_argument("--prompt", help="The prompt to send to the LLM")
     parser.add_argument("--prompt-file", help="Read prompt from a file (- for stdin)")
     parser.add_argument("--output", help="Write output to a file instead of stdout")
-    parser.add_argument("--model", default="openai/gpt-4.1-nano", help="OpenRouter model to use")
-    parser.add_argument("--max-iterations", type=int, default=10, help="Max agent loop iterations (default: 10)")
+    parser.add_argument("--agent", help="Path to agent config JSON file")
+    parser.add_argument("--model", help="OpenRouter model to use (overrides agent config)")
+    parser.add_argument("--max-iterations", type=int, help="Max agent loop iterations (overrides agent config)")
     args = parser.parse_args()
 
     if args.prompt and args.prompt_file:
@@ -33,7 +33,12 @@ def main():
 
     prompt = _read_prompt(args)
 
-    agent = Agent(model=args.model, tools=[BASH_TOOL], max_iterations=args.max_iterations)
+    agent = Agent.from_file(args.agent) if args.agent else Agent()
+    if args.model:
+        agent.model = args.model
+    if args.max_iterations is not None:
+        agent.max_iterations = args.max_iterations
+
     result = agent.run(prompt)
     output = json.dumps(result, indent=2)
 

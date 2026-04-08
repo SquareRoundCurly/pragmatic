@@ -3,6 +3,7 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
+  "privileged": true,
   "remoteUser": "devcontainer",
   "remoteEnv": {
     "PATH": "/home/devcontainer/.local/bin:${containerEnv:PATH}"

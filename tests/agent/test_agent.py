@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pragmatic.agent import Agent
+from pragmatic.agent import Agent, DEFAULT_MODEL, DEFAULT_MAX_ITERATIONS, DEFAULT_TOOLS
 from pragmatic.tools import Tool
 from pragmatic.tools.finish import FINISH_TOOL
 
@@ -82,7 +82,8 @@ class TestAgent:
 
         with patch("pragmatic.agent.OpenRouter") as mock_or:
             mock_or.return_value.chat.send.side_effect = [response1, response2]
-            agent = Agent(tools=[add_tool])
+            agent = Agent()
+            agent.tools[add_tool.name] = add_tool
             result = agent.run("Add 2 and 3")
 
         assert result == {"success": True, "reason": "2+3=5"}
@@ -122,6 +123,30 @@ class TestAgent:
         assert openrouter_def.function.name == "finish"
         assert "success" in openrouter_def.function.parameters["properties"]
         assert "reason" in openrouter_def.function.parameters["properties"]
+
+    def test_from_file(self, tmp_path):
+        """Agent.from_file loads model, max_iterations, and tools."""
+        path = tmp_path / "agent.json"
+        path.write_text(json.dumps({
+            "model": "openai/gpt-4o",
+            "max_iterations": 5,
+            "tools": ["bash"],
+        }))
+        with patch("pragmatic.agent.OpenRouter"):
+            agent = Agent.from_file(str(path))
+        assert agent.model == "openai/gpt-4o"
+        assert agent.max_iterations == 5
+        assert "bash" in agent.tools
+
+    def test_from_file_defaults(self, tmp_path):
+        """Agent.from_file uses defaults for missing fields."""
+        path = tmp_path / "agent.json"
+        path.write_text("{}")
+        with patch("pragmatic.agent.OpenRouter"):
+            agent = Agent.from_file(str(path))
+        assert agent.model == DEFAULT_MODEL
+        assert agent.max_iterations == DEFAULT_MAX_ITERATIONS
+        assert "bash" in agent.tools
 
 
 def test_missing_api_key():
